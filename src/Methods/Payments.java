@@ -40,7 +40,7 @@ public class Payments {
     }
     
     public static void caculatePayment(DefaultTableModel model,String cash,JLabel totalValue,JLabel balanceLabel,JLabel cashValue,
-            double cashDouble,double totalDouble){
+            double cashDouble,double totalDouble,String IP_ADDRESS,String SEND_TO){
         coffee_shop.mainFrame main = new coffee_shop.mainFrame();
         if (totalValue.getText().isEmpty()) {
             JOptionPane.showMessageDialog(null, "Please order first or click order summary");
@@ -69,6 +69,7 @@ public class Payments {
 
             if (cashDouble - totalDouble >= 0.01) {
                 Methods.Payments.processPayment(model);
+                Tools.IP.SendMessage(IP_ADDRESS, SEND_TO,"New payment has been made: Total amount:"+totalDouble, true);
             } else {
                 JOptionPane.showMessageDialog(null, "Insufficient cash amount.", "Warning", JOptionPane.WARNING_MESSAGE);
             }

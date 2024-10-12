@@ -5,6 +5,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
@@ -15,7 +17,8 @@ public final class mainFrame extends javax.swing.JFrame {
     Connection conn;
     String name = null;
     String cash;
-
+    String IP_ADDRESS = "";
+    String SEND_TO = "";
     double totalAmount = 0;
     double cashDouble;
     double totalDouble;
@@ -31,6 +34,18 @@ public final class mainFrame extends javax.swing.JFrame {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM,dd,yyyy");
         String dateNow = now.format(formatter);
         dateLabel.setText(dateNow);
+    }
+
+    public boolean isValidGateway(String gateway) {
+        try {
+            String ipRegex = "\\b((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\b";
+            Pattern pattern = Pattern.compile(ipRegex);
+            Matcher matcher = pattern.matcher(gateway);
+            return matcher.matches();
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
+        return false;
     }
 
     @SuppressWarnings("unchecked")
@@ -561,6 +576,13 @@ public final class mainFrame extends javax.swing.JFrame {
         recieptPanel.add(pBalance, new org.netbeans.lib.awtextra.AbsoluteConstraints(210, 590, 180, 40));
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        addWindowFocusListener(new java.awt.event.WindowFocusListener() {
+            public void windowGainedFocus(java.awt.event.WindowEvent evt) {
+                formWindowGainedFocus(evt);
+            }
+            public void windowLostFocus(java.awt.event.WindowEvent evt) {
+            }
+        });
 
         backGroundPanel.setBackground(new java.awt.Color(102, 51, 0));
         backGroundPanel.setPreferredSize(new java.awt.Dimension(1300, 50));
@@ -1065,7 +1087,7 @@ public final class mainFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_jButton2ActionPerformed
 
     private void payButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_payButtonActionPerformed
-        Methods.Payments.caculatePayment(model, cash, totalValue, balanceLabel, cashValue, cashDouble, totalDouble);
+      Methods.Payments.caculatePayment(model, cash, totalValue, balanceLabel, cashValue, cashDouble, totalDouble, IP_ADDRESS, SEND_TO);
     }//GEN-LAST:event_payButtonActionPerformed
 
     private void removeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_removeActionPerformed
@@ -1169,6 +1191,27 @@ public final class mainFrame extends javax.swing.JFrame {
         new home().setVisible(true);
         this.dispose();
     }//GEN-LAST:event_excelPrintButton2ActionPerformed
+
+    private void formWindowGainedFocus(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowGainedFocus
+
+        if (IP_ADDRESS.isEmpty() || IP_ADDRESS.equals("")) {
+            onGlass();
+            String ip = JOptionPane.showInputDialog("Input your IP address");
+            offGlass();
+            if (isValidGateway(ip)) {
+                IP_ADDRESS = ip;
+            }
+            if (SEND_TO.isEmpty() || SEND_TO.equals("") || !IP_ADDRESS.isEmpty()) {
+                onGlass();
+                String phone = JOptionPane.showInputDialog("Input your phone number");
+                SEND_TO = phone;
+                offGlass();
+
+            }
+        }
+
+
+    }//GEN-LAST:event_formWindowGainedFocus
 
     public static void main(String args[]) {
         FlatLightLaf.setup();
