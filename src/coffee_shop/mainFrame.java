@@ -1,52 +1,36 @@
 package coffee_shop;
 
 import com.formdev.flatlaf.FlatLightLaf;
-import com.itextpdf.text.Document;
-import com.itextpdf.text.Element;
-import com.itextpdf.text.FontFactory;
-import com.itextpdf.text.PageSize;
-import com.itextpdf.text.Paragraph;
-import com.itextpdf.text.pdf.PdfPTable;
-import com.itextpdf.text.pdf.PdfWriter;
-import java.awt.*;
-import java.awt.event.*;
-import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import javax.imageio.ImageIO;
-import javax.swing.*;
-import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
 import javax.swing.table.DefaultTableModel;
-import net.proteanit.sql.DbUtils;
-import org.apache.poi.xssf.usermodel.XSSFRow;
-import org.apache.poi.xssf.usermodel.XSSFSheet;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
-public class mainFrame extends javax.swing.JFrame {
+public final class mainFrame extends javax.swing.JFrame {
 
     Connection conn;
     String name = null;
     String cash;
 
-    JFileChooser imgChooser = new JFileChooser();
-    File selectedImage;
     double totalAmount = 0;
+    double cashDouble;
+    double totalDouble;
+    DefaultTableModel model;
 
     public mainFrame() {
 
         initComponents();
         setupComponent();
         conn = javaConnection.database();
-        setupDatabase();
+        model = (DefaultTableModel) this.table.getModel();
         LocalDateTime now = LocalDateTime.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM,dd,yyyy");
         String dateNow = now.format(formatter);
         dateLabel.setText(dateNow);
-
     }
 
     @SuppressWarnings("unchecked")
@@ -1072,92 +1056,21 @@ public class mainFrame extends javax.swing.JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     private void jButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2ActionPerformed
-        DefaultTableModel model = (DefaultTableModel) this.table.getModel();
-        model.setRowCount(0);
 
+        model.setRowCount(0);
         totalValue.setText("");
         cashValue.setText("");
         balanceLabel.setText("");
-
-        getTotalAmount();
+        Methods.Total.getTotalAmount(model, totalValue);
     }//GEN-LAST:event_jButton2ActionPerformed
-    double cashDouble;
-    double totalDouble;
+
     private void payButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_payButtonActionPerformed
-
-        if (totalValue.getText().isEmpty()) {
-            JOptionPane.showMessageDialog(null, "Please order first or click order summary");
-            return;
-        }
-        if (Double.parseDouble(totalValue.getText()) <= 0) {
-            JOptionPane.showMessageDialog(null, "Please order first or click order summary");
-            return;
-        }
-        DefaultTableModel model = (DefaultTableModel) this.table.getModel();
-        onGlass();
-        cash = JOptionPane.showInputDialog(null, "Cash:", "Pay", JOptionPane.PLAIN_MESSAGE);
-        offGlass();
-
-        if (cash == null || cash.trim().isEmpty()) {
-            JOptionPane.showMessageDialog(null, "Please enter a valid cash amount.", "Warning", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        try {
-            cashDouble = Double.parseDouble(cash);
-            totalDouble = Double.parseDouble(totalValue.getText().replace("₱", ""));
-            double balanceDouble = cashDouble - totalDouble;
-            balanceLabel.setText("₱" + balanceDouble);
-            cashValue.setText("₱" + cashDouble);
-
-            if (cashDouble - totalDouble >= 0.01) {
-                processPayment(model);
-            } else {
-                JOptionPane.showMessageDialog(null, "Insufficient cash amount.", "Warning", JOptionPane.WARNING_MESSAGE);
-            }
-
-        } catch (NumberFormatException e) {
-            onGlass();
-            JOptionPane.showMessageDialog(null, "Invalid input cash: " + cash, "Warning", JOptionPane.ERROR_MESSAGE);
-            offGlass();
-            System.err.println(e);
-        }
+        Methods.Payments.caculatePayment(model, cash, totalValue, balanceLabel, cashValue, cashDouble, totalDouble);
     }//GEN-LAST:event_payButtonActionPerformed
-    private void processPayment(DefaultTableModel model) {
-        try (PreparedStatement pst = conn.prepareStatement(
-                "INSERT INTO PreviousCoffeeTable (item_name, item_quantity, item_amount) VALUES (?, ?, ?)")) {
-            for (int i = 0; i < model.getRowCount(); i++) {
-                pst.setObject(1, model.getValueAt(i, 0));
-                pst.setObject(2, model.getValueAt(i, 1));
-                pst.setObject(3, model.getValueAt(i, 2));
-                pst.addBatch();
-            }
-            pst.executeBatch();
-            System.out.println("Yes");
-        } catch (SQLException e) {
-            onGlass();
-            JOptionPane.showMessageDialog(null, "Database error: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-            offGlass();
-            System.err.println(e);
-        }
-    }
-    private void removeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_removeActionPerformed
-        DefaultTableModel model = (DefaultTableModel) this.table.getModel();
-        if (table.getSelectedRow() != -1) {
-            model.removeRow(table.getSelectedRow());
 
-            for (int i = 0; i < table.getRowCount(); i++) {
-                String valueTotalAmount = model.getValueAt(i, 2).toString().replace("₱", "");
-                totalAmount += Double.parseDouble(valueTotalAmount);
-            }
-            totalValue.setText("₱" + totalAmount);
-            cashValue.setText("");
-            balanceLabel.setText("");
-        } else {
-            onGlass();
-            JOptionPane.showMessageDialog(table, "Please select a row you want to delete");
-            offGlass();
-        }
+    private void removeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_removeActionPerformed
+
+        Methods.Table.RemoveItem(table, model, totalValue, cashValue, balanceLabel, totalAmount);
 
     }//GEN-LAST:event_removeActionPerformed
 
@@ -1168,144 +1081,30 @@ public class mainFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_tableMousePressed
 
     private void historyButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_historyButtonActionPerformed
-        try (PreparedStatement pst = conn.prepareStatement("Select id as 'Product ID',item_name as 'Product Name',"
-                + "item_quantity as 'Quantity',item_amount as 'Total amount',order_time as 'Date and time'  from PreviousCoffeeTable")) {
-            ResultSet rs = pst.executeQuery();
-            previousTable.setModel(DbUtils.resultSetToTableModel(rs));
-        } catch (Exception e) {
-            System.out.println(e);
-        }
-        previousTable.getTableHeader().setFont(new Font("Sanserif", Font.BOLD, 14));
-        previousTable.getColumnModel().getColumn(0).setMaxWidth(100);
-        previousTable.getColumnModel().getColumn(0).setMinWidth(100);
-        previousTable.getColumnModel().getColumn(2).setMaxWidth(100);
-        previousTable.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
-            @Override
-            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-                super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-                setHorizontalAlignment(JLabel.CENTER);
-                setFont(new Font("Sanserif", Font.BOLD, 12));
-                table.setRowHeight(30);
-
-                return this;
-            }
-
-        });
-
-        try (PreparedStatement pst = conn.prepareStatement("Select sum(item_amount)from PreviousCoffeeTable")) {
-            ResultSet rs = pst.executeQuery();
-            if (rs.next()) {
-                if (rs.getString(1) != null) {
-                    previousTotalSales.setText("Total sales: ₱" + rs.getString(1));
-                }
-
-            }
-
-        } catch (Exception e) {
-            System.err.println(e);
-        }
-
+        Methods.PreviousCoffee.History(previousTable, previousTotalSales);
         onGlass();
         JOptionPane.showMessageDialog(null, historyPanel, "Previous Order", JOptionPane.PLAIN_MESSAGE);
         offGlass();
     }//GEN-LAST:event_historyButtonActionPerformed
 
     private void excelPrintButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_excelPrintButtonActionPerformed
-        JFileChooser fileSave = new JFileChooser();
-        File selectedFile;
-        int result = fileSave.showSaveDialog(null);
-        if (result == JFileChooser.APPROVE_OPTION) {
-            selectedFile = fileSave.getSelectedFile().getAbsoluteFile();
-            String location = selectedFile + ".xlsx";
-            try {
-                XSSFWorkbook workbook = new XSSFWorkbook();
-                XSSFSheet sheet = workbook.createSheet("Previous Order");
-                PreparedStatement pst = conn.prepareStatement("Select * from PreviousCoffeeTable");
-                ResultSet rs = pst.executeQuery();
-
-                XSSFRow rowHeader = sheet.createRow(0);
-                rowHeader.createCell(0).setCellValue("Name");
-                rowHeader.createCell(1).setCellValue("Quantity");
-                rowHeader.createCell(2).setCellValue("Amount");
-                rowHeader.createCell(3).setCellValue("Order Time");
-
-                int rowNumber = 1;
-                while (rs.next()) {
-                    XSSFRow row = sheet.createRow(rowNumber++);
-
-                    row.createCell(0).setCellValue(rs.getString("item_name"));
-                    row.createCell(1).setCellValue(rs.getString("item_quantity"));
-                    row.createCell(2).setCellValue(rs.getString("item_amount"));
-                    row.createCell(3).setCellValue(rs.getString("order_time"));
-
-                }
-
-                JOptionPane.showMessageDialog(null, "Successfull Printed to : " + location);
-                System.out.println(location);
-                workbook.write(new FileOutputStream(location));
-                Desktop.getDesktop().open(new File(location));
-            } catch (Exception e) {
-                System.err.println(e);
-            }
-
-        }
-
+        Methods.Excel.ExcelPrint();
     }//GEN-LAST:event_excelPrintButtonActionPerformed
 
     private void pdfPrintButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_pdfPrintButtonActionPerformed
-        JFileChooser pdfChooser = new JFileChooser();
-
-        pdfChooser.setDialogTitle("Please choose a directory and name the file");
-        File pdf;
-        int result = pdfChooser.showSaveDialog(null);
-        if (result == JFileChooser.APPROVE_OPTION) {
-            pdf = pdfChooser.getSelectedFile().getAbsoluteFile();
-
-            try {
-
-                Document document = new Document(PageSize.A4);
-                PdfWriter.getInstance(document, new FileOutputStream(pdf + ".pdf"));
-                document.open();
-
-                Paragraph title = new Paragraph("Orders", FontFactory.getFont(FontFactory.HELVETICA, 20, Font.BOLD));
-                title.setAlignment(Element.ALIGN_CENTER);
-                title.setSpacingAfter(20);
-                document.add(title);
-
-                PdfPTable tables = new PdfPTable(previousTable.getColumnCount());
-
-                for (int i = 0; i < previousTable.getColumnCount(); i++) {
-                    tables.addCell(previousTable.getColumnName(i));
-                }
-                for (int row = 0; row < previousTable.getRowCount(); row++) {
-                    for (int column = 0; column < previousTable.getColumnCount(); column++) {
-                        tables.addCell(previousTable.getValueAt(row, column).toString());
-                    }
-                }
-
-                document.add(tables);
-                document.close();
-                JOptionPane.showMessageDialog(null, "Successfull printed to pdf,locatio: " + pdf.toString() + ".pdf");
-                Desktop.getDesktop().open(new File(pdf.toString() + ".pdf"));
-
-            } catch (Exception e) {
-                System.err.println(e);
-            }
-        }
-
+        Methods.PDF.PrintPDF(previousTable);
     }//GEN-LAST:event_pdfPrintButtonActionPerformed
 
     private void printButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_printButtonActionPerformed
-        getTotalAmount();
+        Methods.Total.getTotalAmount(model, totalValue);
         JLabel[] nameLabels = {name1, name2, name3, name4, name5, name6, name7, name8, name9, name10, name11, name12};
         JLabel[] qLabels = {qq1, qq2, qq3, qq4, qq5, qq6, qq7, qq8, qq9, qq10, qq11, qq12};
         JLabel[] aLabels = {a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12};
         onGlass();
         JOptionPane.showMessageDialog(null, recieptPanel, "", JOptionPane.PLAIN_MESSAGE);
         offGlass();
-        DefaultTableModel model = (DefaultTableModel) this.table.getModel();
 
-        showReceiptPanel(recieptPanel, model, nameLabels, qLabels, aLabels);
+        Methods.Reciept.showReceiptPanel(recieptPanel, model, nameLabels, qLabels, aLabels);
         pAmount.setText("Total Amount: ₱" + totalValue.getText());
         pCash.setText("Cash: " + cashValue.getText());
         pBalance.setText("Balance: " + balanceLabel.getText());
@@ -1318,47 +1117,20 @@ public class mainFrame extends javax.swing.JFrame {
         pBalance.repaint();
         pBalance.revalidate();
 
-
     }//GEN-LAST:event_printButtonActionPerformed
 
-    public void showReceiptPanel(JPanel receiptPanel, DefaultTableModel tableModel, JLabel[] nameLabels, JLabel[] qLabels, JLabel[] aLabels) {
-        try {
-            for (int i = 0; i < nameLabels.length; i++) {
-                if (i < tableModel.getRowCount() && tableModel.getColumnCount() >= 3) {
-                    nameLabels[i].setText(tableModel.getValueAt(i, 0).toString());
-                    qLabels[i].setText(tableModel.getValueAt(i, 1).toString());
-                    aLabels[i].setText(tableModel.getValueAt(i, 2).toString());
-                } else {
-                    nameLabels[i].setText("");
-                    qLabels[i].setText("");
-                    aLabels[i].setText("");
-                }
-            }
-            // Debugging output to verify labels are updated
-            for (int i = 0; i < nameLabels.length; i++) {
-                System.out.println("Label " + i + ": " + nameLabels[i].getText() + ", " + qLabels[i].getText() + ", " + aLabels[i].getText());
-            }
 
-            receiptPanel.revalidate();
-            receiptPanel.repaint();
-        } catch (ArrayIndexOutOfBoundsException e) {
-            System.err.println("Error: Attempted to access a row or column out of table bounds: " + e.getMessage());
-        } catch (Exception e) {
-            System.err.println("Error: " + e.getMessage());
-        }
-    }
     private void summary_buttonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_summary_buttonActionPerformed
 
-        DefaultTableModel model = (DefaultTableModel) this.table.getModel();
         model.setRowCount(0);
         showSummaryFunction();
-        getTotalAmount();
+        Methods.Total.getTotalAmount(model, totalValue);
 
         JLabel[] nameLabels = {name1, name2, name3, name4, name5, name6, name7, name8, name9, name10, name11, name12};
         JLabel[] qLabels = {qq1, qq2, qq3, qq4, qq5, qq6, qq7, qq8, qq9, qq10, qq11, qq12};
         JLabel[] aLabels = {a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12};
 
-        showReceiptPanel(recieptPanel, model, nameLabels, qLabels, aLabels);
+        Methods.Reciept.showReceiptPanel(recieptPanel, model, nameLabels, qLabels, aLabels);
         pAmount.setText("Total Amount: ₱" + totalValue.getText());
         pCash.setText("Cash: " + cashValue.getText());
         pBalance.setText("Balance: " + balanceLabel.getText());
@@ -1381,7 +1153,7 @@ public class mainFrame extends javax.swing.JFrame {
                 previousTotalSales.setText("");
                 int affect = pst.executeUpdate();
                 if (affect > 0) {
-                    DefaultTableModel model = (DefaultTableModel) this.previousTable.getModel();
+
                     model.setRowCount(0);
 
                 }
@@ -1397,45 +1169,6 @@ public class mainFrame extends javax.swing.JFrame {
         new home().setVisible(true);
         this.dispose();
     }//GEN-LAST:event_excelPrintButton2ActionPerformed
-
-    void getTotalAmount() {
-        DefaultTableModel model = (DefaultTableModel) this.table.getModel();
-        double total = 0.0;
-
-        for (int i = 0; i < model.getRowCount(); i++) {
-
-            Object value = model.getValueAt(i, 2);
-
-            if (value != null && value instanceof Number) {
-
-                total += ((Number) value).doubleValue();
-            }
-        }
-
-        totalValue.setText(String.valueOf(total));
-        totalValue.repaint();
-        totalValue.revalidate();
-    }
-
-    void setupDatabase() {
-        try (Statement stmt = conn.createStatement()) {
-            stmt.executeUpdate("CREATE DATABASE IF NOT EXISTS CoffeeDatabase");
-            stmt.executeUpdate("USE CoffeeDatabase");
-
-            try (PreparedStatement pstPreviousTable = conn.prepareStatement(
-                    "CREATE TABLE IF NOT EXISTS PreviousCoffeeTable ("
-                    + "id INT AUTO_INCREMENT PRIMARY KEY, "
-                    + "item_name VARCHAR(100) NOT NULL, "
-                    + "item_quantity VARCHAR(100) NOT NULL, "
-                    + "item_amount VARCHAR(100) NOT NULL, "
-                    + "order_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")) {
-                pstPreviousTable.executeUpdate();
-                System.out.println("Created coffeetable");
-            }
-        } catch (SQLException e) {
-            System.err.println(e);
-        }
-    }
 
     public static void main(String args[]) {
         FlatLightLaf.setup();
@@ -1636,284 +1369,174 @@ public class mainFrame extends javax.swing.JFrame {
     private javax.swing.JLabel totalLabel2;
     private javax.swing.JLabel totalValue;
     // End of variables declaration//GEN-END:variables
-void JPopMenuShow_Function(JPopupMenu pop, JButton button) {
-        button.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                if (SwingUtilities.isRightMouseButton(e)) {
-
-                    pop.show(button, e.getX(), e.getY());
-
-                }
-
-            }
-
-        });
-    }
-
-    void JMenuItem_Rename_Function(JMenuItem item, JLabel Oldname) {
-        item.addActionListener((ActionEvent e) -> {
-            onGlass();
-            String New_name = JOptionPane.showInputDialog(Oldname, "", "Rename old item name :", JOptionPane.PLAIN_MESSAGE);
-            offGlass();
-            try {
-                if (!New_name.trim().equals("")) {
-                    Oldname.setText(New_name);
-                }
-            } catch (Exception ee) {
-
-            }
-        });
-    }
-
-    void JMenuItem_EditPrice_Function(JMenuItem item, JLabel OldName) {
-
-        item.addActionListener((ActionEvent e) -> {
-            onGlass();
-            String newName = JOptionPane.showInputDialog(OldName, "", "Rename old item price:", JOptionPane.PLAIN_MESSAGE);
-            offGlass();
-            if (newName != null && !newName.trim().isEmpty()) {
-                try {
-                    Double.parseDouble(newName);
-                    OldName.setText("₱" + newName);
-                } catch (NumberFormatException ex) {
-                    onGlass();
-                    JOptionPane.showMessageDialog(OldName, "Please enter a valid number.", "Invalid Input", JOptionPane.ERROR_MESSAGE);
-                    offGlass();
-                }
-            }
-        });
-
-    }
 
     void showSummaryFunction() {
-        DefaultTableModel model = (DefaultTableModel) this.table.getModel();
+
         model.setRowCount(0);
 
-        if (!q1.getText().trim().isEmpty()) {
-            String item1 = label_name1.getText();
-            String price1 = price_label1.getText().replace("₱", "");
-            String quantity1 = q1.getText();
+        if (!this.q1.getText().trim().isEmpty()) {
+            String item1 = this.label_name1.getText();
+            String price1 = this.price_label1.getText().replace("₱", "");
+            String quantity1 = this.q1.getText();
             int total1 = Integer.parseInt(quantity1) * Integer.parseInt(price1);
             model.addRow(new Object[]{item1, quantity1, total1});
         }
-        if (!q2.getText().trim().isEmpty()) {
-            String item2 = label_name2.getText();
-            String price2 = price_label2.getText().replace("₱", "");
-            String quantity2 = q2.getText();
+        if (!this.q2.getText().trim().isEmpty()) {
+            String item2 = this.label_name2.getText();
+            String price2 = this.price_label2.getText().replace("₱", "");
+            String quantity2 = this.q2.getText();
             int total2 = Integer.parseInt(quantity2) * Integer.parseInt(price2);
             model.addRow(new Object[]{item2, quantity2, total2});
         }
-        if (!q3.getText().trim().isEmpty()) {
-            String item3 = label_name3.getText();
-            String price3 = price_label3.getText().replace("₱", "");
-            String quantity3 = q3.getText();
+        if (!this.q3.getText().trim().isEmpty()) {
+            String item3 = this.label_name3.getText();
+            String price3 = this.price_label3.getText().replace("₱", "");
+            String quantity3 = this.q3.getText();
             int total3 = Integer.parseInt(quantity3) * Integer.parseInt(price3);
             model.addRow(new Object[]{item3, quantity3, total3});
         }
-        if (!q4.getText().trim().isEmpty()) {
-            String item4 = label_name4.getText();
-            String price4 = price_label4.getText().replace("₱", "");
-            String quantity4 = q4.getText();
+        if (!this.q4.getText().trim().isEmpty()) {
+            String item4 = this.label_name4.getText();
+            String price4 = this.price_label4.getText().replace("₱", "");
+            String quantity4 = this.q4.getText();
             int total4 = Integer.parseInt(quantity4) * Integer.parseInt(price4);
             model.addRow(new Object[]{item4, quantity4, total4});
         }
-        if (!q5.getText().trim().isEmpty()) {
-            String item5 = label_name5.getText();
-            String price5 = price_label5.getText().replace("₱", "");
-            String quantity5 = q5.getText();
+        if (!this.q5.getText().trim().isEmpty()) {
+            String item5 = this.label_name5.getText();
+            String price5 = this.price_label5.getText().replace("₱", "");
+            String quantity5 = this.q5.getText();
             int total5 = Integer.parseInt(quantity5) * Integer.parseInt(price5);
             model.addRow(new Object[]{item5, quantity5, total5});
         }
-        if (!q6.getText().trim().isEmpty()) {
-            String item6 = label_name6.getText();
-            String price6 = price_label6.getText().replace("₱", "");
-            String quantity6 = q6.getText();
+        if (!this.q6.getText().trim().isEmpty()) {
+            String item6 = this.label_name6.getText();
+            String price6 = this.price_label6.getText().replace("₱", "");
+            String quantity6 = this.q6.getText();
             int total6 = Integer.parseInt(quantity6) * Integer.parseInt(price6);
             model.addRow(new Object[]{item6, quantity6, total6});
         }
-        if (!q7.getText().trim().isEmpty()) {
-            String item7 = label_name7.getText();
-            String price7 = price_label7.getText().replace("₱", "");
-            String quantity7 = q7.getText();
+        if (!this.q7.getText().trim().isEmpty()) {
+            String item7 = this.label_name7.getText();
+            String price7 = this.price_label7.getText().replace("₱", "");
+            String quantity7 = this.q7.getText();
             int total7 = Integer.parseInt(quantity7) * Integer.parseInt(price7);
             model.addRow(new Object[]{item7, quantity7, total7});
         }
-        if (!q8.getText().trim().isEmpty()) {
-            String item8 = label_name8.getText();
-            String price8 = price_label8.getText().replace("₱", "");
-            String quantity8 = q8.getText();
+        if (!this.q8.getText().trim().isEmpty()) {
+            String item8 = this.label_name8.getText();
+            String price8 = this.price_label8.getText().replace("₱", "");
+            String quantity8 = this.q8.getText();
             int total8 = Integer.parseInt(quantity8) * Integer.parseInt(price8);
             model.addRow(new Object[]{item8, quantity8, total8});
         }
-        if (!q9.getText().trim().isEmpty()) {
-            String item9 = label_name9.getText();
-            String price9 = price_label9.getText().replace("₱", "");
-            String quantity9 = q9.getText();
+        if (!this.q9.getText().trim().isEmpty()) {
+            String item9 = this.label_name9.getText();
+            String price9 = this.price_label9.getText().replace("₱", "");
+            String quantity9 = this.q9.getText();
             int total9 = Integer.parseInt(quantity9) * Integer.parseInt(price9);
             model.addRow(new Object[]{item9, quantity9, total9});
         }
-        if (!q10.getText().trim().isEmpty()) {
-            String item10 = label_name10.getText();
-            String price10 = price_label10.getText().replace("₱", "");
-            String quantity10 = q10.getText();
+        if (!this.q10.getText().trim().isEmpty()) {
+            String item10 = this.label_name10.getText();
+            String price10 = this.price_label10.getText().replace("₱", "");
+            String quantity10 = this.q10.getText();
             int total10 = Integer.parseInt(quantity10) * Integer.parseInt(price10);
             model.addRow(new Object[]{item10, quantity10, total10});
         }
-        if (!q11.getText().trim().isEmpty()) {
-            String item11 = label_name11.getText();
-            String price11 = price_label11.getText().replace("₱", "");
-            String quantity11 = q11.getText();
+        if (!this.q11.getText().trim().isEmpty()) {
+            String item11 = this.label_name11.getText();
+            String price11 = this.price_label11.getText().replace("₱", "");
+            String quantity11 = this.q11.getText();
             int total11 = Integer.parseInt(quantity11) * Integer.parseInt(price11);
             model.addRow(new Object[]{item11, quantity11, total11});
         }
-        if (!q12.getText().trim().isEmpty()) {
-            String item12 = label_name12.getText();
-            String price12 = price_label12.getText().replace("₱", "");
-            String quantity12 = q12.getText();
+        if (!this.q12.getText().trim().isEmpty()) {
+            String item12 = this.label_name12.getText();
+            String price12 = this.price_label12.getText().replace("₱", "");
+            String quantity12 = this.q12.getText();
             int total12 = Integer.parseInt(quantity12) * Integer.parseInt(price12);
             model.addRow(new Object[]{item12, quantity12, total12});
         }
     }
 
-    void setupComponent() {
-        JPopMenuShow_Function(pop1, b1);
-        JPopMenuShow_Function(pop2, b2);
-        JPopMenuShow_Function(pop3, b3);
-        JPopMenuShow_Function(pop4, b4);
-        JPopMenuShow_Function(pop5, b5);
-        JPopMenuShow_Function(pop6, b6);
-        JPopMenuShow_Function(pop7, b7);
-        JPopMenuShow_Function(pop8, b8);
-        JPopMenuShow_Function(pop9, b9);
-        JPopMenuShow_Function(pop10, b10);
-        JPopMenuShow_Function(pop11, b11);
-        JPopMenuShow_Function(pop12, b12);
-
-        JMenuItem_Rename_Function(rename1, label_name1);
-        JMenuItem_Rename_Function(rename2, label_name2);
-        JMenuItem_Rename_Function(rename3, label_name3);
-        JMenuItem_Rename_Function(rename4, label_name4);
-        JMenuItem_Rename_Function(rename5, label_name5);
-        JMenuItem_Rename_Function(rename6, label_name6);
-        JMenuItem_Rename_Function(rename7, label_name7);
-        JMenuItem_Rename_Function(rename8, label_name8);
-        JMenuItem_Rename_Function(rename9, label_name9);
-        JMenuItem_Rename_Function(rename10, label_name10);
-        JMenuItem_Rename_Function(rename11, label_name11);
-        JMenuItem_Rename_Function(rename12, label_name12);
-
-        JMenuItem_EditPrice_Function(edit_price1, price_label1);
-        JMenuItem_EditPrice_Function(edit_price2, price_label2);
-        JMenuItem_EditPrice_Function(edit_price3, price_label3);
-        JMenuItem_EditPrice_Function(edit_price4, price_label4);
-        JMenuItem_EditPrice_Function(edit_price5, price_label5);
-        JMenuItem_EditPrice_Function(edit_price6, price_label6);
-        JMenuItem_EditPrice_Function(edit_price7, price_label7);
-        JMenuItem_EditPrice_Function(edit_price8, price_label8);
-        JMenuItem_EditPrice_Function(edit_price9, price_label9);
-        JMenuItem_EditPrice_Function(edit_price10, price_label10);
-        JMenuItem_EditPrice_Function(edit_price11, price_label11);
-        JMenuItem_EditPrice_Function(edit_price12, price_label12);
-
-        chooseImage(edit_image1, b1);
-        chooseImage(edit_image2, b2);
-        chooseImage(edit_image3, b3);
-        chooseImage(edit_image4, b4);
-        chooseImage(edit_image5, b5);
-        chooseImage(edit_image6, b6);
-        chooseImage(edit_image7, b7);
-        chooseImage(edit_image8, b8);
-        chooseImage(edit_image9, b9);
-        chooseImage(edit_image10, b10);
-        chooseImage(edit_image11, b11);
-        chooseImage(edit_image12, b12);
-
-        noCharacterQuantity(q1);
-        noCharacterQuantity(q2);
-        noCharacterQuantity(q3);
-        noCharacterQuantity(q4);
-        noCharacterQuantity(q5);
-        noCharacterQuantity(q6);
-        noCharacterQuantity(q7);
-        noCharacterQuantity(q8);
-        noCharacterQuantity(q9);
-        noCharacterQuantity(q10);
-        noCharacterQuantity(q11);
-        noCharacterQuantity(q12);
-
-        table.getTableHeader().setFont(new Font("Sanserif", Font.BOLD, 15));
-        table.setDefaultEditor(Object.class, null);
-        table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
-            @Override
-            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-                super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-
-                setHorizontalAlignment(JLabel.CENTER);
-                return this;
-            }
-
-        });
-
-        rootPane.setGlassPane(new JComponent() {
-            @Override
-            protected void paintComponent(Graphics g) {
-
-                g.setColor(new Color(0, 0, 0, 190));
-                g.fillRect(0, 0, getWidth(), getHeight());
-            }
-
-        });
-
-    }
-
-    void noCharacterQuantity(JTextField field) {
-        field.addKeyListener(new KeyAdapter() {
-            @Override
-            public void keyTyped(KeyEvent e) {
-
-                char c = e.getKeyChar();
-                if (!Character.isDigit(c)) {
-                    e.consume();
-                }
-
-            }
-
-        });
-    }
-
-    void onGlass() {
+    public void onGlass() {
         rootPane.getGlassPane().setVisible(true);
     }
 
-    void offGlass() {
+    public void offGlass() {
         rootPane.getGlassPane().setVisible(false);
     }
 
-    void chooseImage(JMenuItem item, JButton button) {
+    void setupComponent() {
+        Methods.GlassPane.setTheGlassPane(rootPane);
+        Methods.Table.DesignTable(table);
 
-        item.addMouseListener(new MouseAdapter() {
+        Methods.PopMenu.JPopMenuShow_Function(pop1, b1);
+        Methods.PopMenu.JPopMenuShow_Function(pop2, b2);
+        Methods.PopMenu.JPopMenuShow_Function(pop3, b3);
+        Methods.PopMenu.JPopMenuShow_Function(pop4, b4);
+        Methods.PopMenu.JPopMenuShow_Function(pop5, b5);
+        Methods.PopMenu.JPopMenuShow_Function(pop6, b6);
+        Methods.PopMenu.JPopMenuShow_Function(pop7, b7);
+        Methods.PopMenu.JPopMenuShow_Function(pop8, b8);
+        Methods.PopMenu.JPopMenuShow_Function(pop9, b9);
+        Methods.PopMenu.JPopMenuShow_Function(pop10, b10);
+        Methods.PopMenu.JPopMenuShow_Function(pop11, b11);
+        Methods.PopMenu.JPopMenuShow_Function(pop12, b12);
 
-            @Override
-            public void mousePressed(MouseEvent e) {
-                int resultImage = imgChooser.showOpenDialog(null);
-                if (resultImage == JFileChooser.APPROVE_OPTION) {
-                    selectedImage = imgChooser.getSelectedFile().getAbsoluteFile();
-                    button.setText("");
-                    try {
-                        BufferedImage img = ImageIO.read(new FileInputStream(selectedImage));
-                        Image image = img.getScaledInstance(button.getWidth(), button.getHeight(), Image.SCALE_SMOOTH);
-                        button.setIcon(new ImageIcon(image));
+        Methods.MenuItem.JMenuItem_Rename_Function(rename1, label_name1);
+        Methods.MenuItem.JMenuItem_Rename_Function(rename2, label_name2);
+        Methods.MenuItem.JMenuItem_Rename_Function(rename3, label_name3);
+        Methods.MenuItem.JMenuItem_Rename_Function(rename4, label_name4);
+        Methods.MenuItem.JMenuItem_Rename_Function(rename5, label_name5);
+        Methods.MenuItem.JMenuItem_Rename_Function(rename6, label_name6);
+        Methods.MenuItem.JMenuItem_Rename_Function(rename7, label_name7);
+        Methods.MenuItem.JMenuItem_Rename_Function(rename8, label_name8);
+        Methods.MenuItem.JMenuItem_Rename_Function(rename9, label_name9);
+        Methods.MenuItem.JMenuItem_Rename_Function(rename10, label_name10);
+        Methods.MenuItem.JMenuItem_Rename_Function(rename11, label_name11);
+        Methods.MenuItem.JMenuItem_Rename_Function(rename12, label_name12);
 
-                    } catch (Exception ee) {
-                        System.err.println(ee);
+        Methods.MenuItem.JMenuItem_EditPrice_Function(edit_price1, price_label1);
+        Methods.MenuItem.JMenuItem_EditPrice_Function(edit_price2, price_label2);
+        Methods.MenuItem.JMenuItem_EditPrice_Function(edit_price3, price_label3);
+        Methods.MenuItem.JMenuItem_EditPrice_Function(edit_price4, price_label4);
+        Methods.MenuItem.JMenuItem_EditPrice_Function(edit_price5, price_label5);
+        Methods.MenuItem.JMenuItem_EditPrice_Function(edit_price6, price_label6);
+        Methods.MenuItem.JMenuItem_EditPrice_Function(edit_price7, price_label7);
+        Methods.MenuItem.JMenuItem_EditPrice_Function(edit_price8, price_label8);
+        Methods.MenuItem.JMenuItem_EditPrice_Function(edit_price9, price_label9);
+        Methods.MenuItem.JMenuItem_EditPrice_Function(edit_price10, price_label10);
+        Methods.MenuItem.JMenuItem_EditPrice_Function(edit_price11, price_label11);
+        Methods.MenuItem.JMenuItem_EditPrice_Function(edit_price12, price_label12);
 
-                    }
+        Methods.Image.chooseImage(edit_image1, b1);
+        Methods.Image.chooseImage(edit_image2, b2);
+        Methods.Image.chooseImage(edit_image3, b3);
+        Methods.Image.chooseImage(edit_image4, b4);
+        Methods.Image.chooseImage(edit_image5, b5);
+        Methods.Image.chooseImage(edit_image6, b6);
+        Methods.Image.chooseImage(edit_image7, b7);
+        Methods.Image.chooseImage(edit_image8, b8);
+        Methods.Image.chooseImage(edit_image9, b9);
+        Methods.Image.chooseImage(edit_image10, b10);
+        Methods.Image.chooseImage(edit_image11, b11);
+        Methods.Image.chooseImage(edit_image12, b12);
 
-                }
-            }
+        Methods.Character.noCharacterQuantity(q1);
+        Methods.Character.noCharacterQuantity(q2);
+        Methods.Character.noCharacterQuantity(q3);
+        Methods.Character.noCharacterQuantity(q4);
+        Methods.Character.noCharacterQuantity(q5);
+        Methods.Character.noCharacterQuantity(q6);
+        Methods.Character.noCharacterQuantity(q7);
+        Methods.Character.noCharacterQuantity(q8);
+        Methods.Character.noCharacterQuantity(q9);
+        Methods.Character.noCharacterQuantity(q10);
+        Methods.Character.noCharacterQuantity(q11);
+        Methods.Character.noCharacterQuantity(q12);
 
-        });
     }
 
 }
